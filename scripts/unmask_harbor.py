@@ -64,14 +64,23 @@ def decide(s, m):
     right = s[m.end()] if m.end() < len(s) else " "
     if SECRET_BEFORE.search(before):
         return run, "secret"
+    if left.isalnum() or left == "_" or right.isalnum() or right == "_":
+        return "1" * n, "digit"   # glued to an identifier or number: 'b1', 'v1.7', '2026-10'
+    after = s[m.end():m.end() + 12]
+    if n == 1 and left in QUOTES:
+        # the quoted digit string '1', not the token: a char->char map key ('1': 'l'), an env/limit/mode
+        # value (OMP_THREAD_LIMIT='1', img.mode == '1'), or PIL's '1' mode named in a comment
+        if re.match(r"['\"]\s*:\s*['\"][^'\"]{0,2}['\"]", after):
+            return "1", "digit"
+        if re.search(r"(mode|_LIMIT|_LEVEL|_COUNT|_THREADS?|VERBOSE|DEBUG)['\"]?\]?\s*(==|!=|=|,)\s*['\"]$", before) \
+                or re.search(r"PIL\s+['\"]$", before):
+            return "1", "digit"
     if n == 1:
         if any(before.endswith(c) for c in GT_CONTEXTS):
             return run, "token"
         if left in QUOTES and right in QUOTES:
             return run, "token"
         if (left in QUOTES or left in " (\n") and TOKEN_BEFORE.search(before) and not right.isdigit():
-            return run, "token"
-        if left == "b" and s[m.start() - 2:m.start() - 1] in QUOTES:
             return run, "token"
         if left in QUOTES and right in " ,;:)\\" and re.search(r"(replac|redact|token|placeholder|label)", before, re.I):
             return run, "token"
